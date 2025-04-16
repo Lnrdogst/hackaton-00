@@ -3,3 +3,5 @@ Me gusta tocar la guitarra
 
 ## Miguel
 Tengo que hacer la multiplicacion
+## Jhonatan
+Mi objetivo es realizar la funcion suma
