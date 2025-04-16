@@ -1,75 +1,87 @@
-def calculate() -> float:
-    while True:
-        expr = input("Escribe una operación (+, -, *) o 'c' para borrar: ").strip()
-        if expr == 'c':
-            print("Operación borrada.")
-            continue
-        if expr == "":
-            raise ValueError("Empty expression")
+def calculate(expression: str) -> float:
+    import re
 
-        try:
-            expr = expr.replace(" ", "")
-            if any(c not in "0123456789.+-*" for c in expr):
-                raise ValueError("Invalid character")
+    expression = expression.strip()
+    if not expression:
+        raise ValueError("Empty input")
 
-            # Convertimos a tokens (números y operadores)
-            tokens = []
-            i = 0
-            while i < len(expr):
-                if expr[i] in '+-*':
-                    if expr[i] == '-' and (i == 0 or expr[i-1] in '+-*'):
-                        num = '-'
-                        i += 1
-                        while i < len(expr) and (expr[i].isdigit() or expr[i] == '.'):
-                            num += expr[i]
-                            i += 1
-                        tokens.append(num)
-                    else:
-                        tokens.append(expr[i])
-                        i += 1
-                elif expr[i].isdigit() or expr[i] == '.':
-                    num = ''
-                    while i < len(expr) and (expr[i].isdigit() or expr[i] == '.'):
-                        num += expr[i]
-                        i += 1
-                    tokens.append(num)
+    if not re.fullmatch(r"[0-9+\-*/(). \t]+", expression):
+        raise ValueError("Invalid characters in input")
+
+    try:
+        # Convert infix expression to postfix (Reverse Polish Notation) using Shunting Yard
+        def precedence(op):
+            if op in ('+', '-'):
+                return 1
+            if op in ('*', '/'):
+                return 2
+            return 0
+
+        def to_postfix(tokens):
+            output = []
+            stack = []
+            for token in tokens:
+                if re.fullmatch(r'-?\d+(\.\d+)?', token):
+                    output.append(token)
+                elif token in ('+', '-', '*', '/'):
+                    while stack and stack[-1] != '(' and precedence(stack[-1]) >= precedence(token):
+                        output.append(stack.pop())
+                    stack.append(token)
+                elif token == '(':
+                    stack.append(token)
+                elif token == ')':
+                    while stack and stack[-1] != '(':
+                        output.append(stack.pop())
+                    if not stack or stack[-1] != '(':
+                        raise SyntaxError("Mismatched parentheses")
+                    stack.pop()
+            while stack:
+                if stack[-1] == '(':
+                    raise SyntaxError("Mismatched parentheses")
+                output.append(stack.pop())
+            return output
+
+        def evaluate_postfix(postfix_tokens):
+            stack = []
+            for token in postfix_tokens:
+                if re.fullmatch(r'-?\d+(\.\d+)?', token):
+                    stack.append(float(token))
                 else:
-                    raise ValueError("Invalid character")
+                    b = stack.pop()
+                    a = stack.pop()
+                    if token == '+':
+                        stack.append(a + b)
+                    elif token == '-':
+                        stack.append(a - b)
+                    elif token == '*':
+                        stack.append(a * b)
+                    elif token == '/':
+                        if b == 0:
+                            raise ZeroDivisionError("Division by zero")
+                        stack.append(a / b)
+            if len(stack) != 1:
+                raise SyntaxError("Invalid expression")
+            return stack[0]
 
-            # Primero resolvemos multiplicaciones
-            i = 0
-            while i < len(tokens):
-                if tokens[i] == '*':
-                    left = float(tokens[i - 1])
-                    right = float(tokens[i + 1])
-                    tokens[i - 1:i + 2] = [str(left * right)]
-                    i = 0  # reiniciar búsqueda después de reemplazo
-                else:
-                    i += 1
+        # Tokenizer (simple split, preserving operators and parentheses)
+        tokens = re.findall(r'\d+\.\d+|\d+|[+\-*/()]', expression.replace(' ', ''))
 
-            # Luego suma y resta
-            result = float(tokens[0])
-            i = 1
-            while i < len(tokens):
-                op = tokens[i]
-                num = float(tokens[i + 1])
-                if op == '+':
-                    result += num
-                elif op == '-':
-                    result -= num
-                else:
-                    raise SyntaxError("Invalid operator in final stage")
-                i += 2
+        # Handle unary minus (e.g., -2 + 3 → ['-2', '+', '3'])
+        i = 0
+        while i < len(tokens):
+            if tokens[i] == '-' and (i == 0 or tokens[i - 1] in '()+-*/'):
+                if i + 1 < len(tokens) and re.fullmatch(r'\d+(\.\d+)?', tokens[i + 1]):
+                    tokens[i:i + 2] = [f"-{tokens[i + 1]}"]
+            i += 1
 
-            print("Resultado:", result)
-            return result
+        postfix = to_postfix(tokens)
+        return evaluate_postfix(postfix)
 
-        except ZeroDivisionError:
-            print("Error: División por cero")
-            raise
-        except ValueError:
-            print("Error: Caracter inválido")
-            raise
-        except SyntaxError:
-            print("Error: Sintaxis inválida")
-            raise
+    except IndexError:
+        raise SyntaxError("Invalid expression structure")
+    except ZeroDivisionError:
+        raise
+    except SyntaxError:
+        raise
+    except Exception:
+        raise ValueError("Unexpected error during evaluation")
