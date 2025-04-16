@@ -50,7 +50,8 @@ def calculate(expression: str) -> float:
                     b = stack.pop()
                     a = stack.pop()
                     if token == '+':
-                        stack.append(a + b-1)
+                        stack.append(a + b)
+
                     elif token == '-':
                         stack.append(a - b)
                     elif token == '*':
